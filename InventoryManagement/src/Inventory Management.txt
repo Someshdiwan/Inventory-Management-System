@@ -1,0 +1,126 @@
+
+|                       🧩 DESIGN PRINCIPLES & PATTERNS — INVENTORY MANAGEMENT                 |
+| Project purpose: Console inventory tool — Add / View / Update / Delete / Search / Save (CSV).|
++----------------------------------------------------------------------------------------------+
+| ✅ Architecture (lightweight MVC mapping)                                                    |
+|   • Model:  Current: parallel in-memory lists:                                               |
+|             productNames (ArrayList<String>),                                                |
+|             productQuantities (ArrayList<Integer>),                                          |
+|             productPrices (ArrayList<Float>).                                                |
+|             Recommended: introduce a typed `Product` class (name, quantity, price).          |
+|   • View:   Console I/O (System.out / Scanner) — renders menu, prompts, and feedback.        |
+|   • Controller: main() + routing logic delegate to methods: addProduct(), viewInventory(),   |
+|     updateProduct(), deleteProduct(), searchProduct(), saveInventory().                      |
+|   • Service/DAO: Not present; extracting `InventoryManager` + `CsvPersistence` is advised.   |
++----------------------------------------------------------------------------------------------+
+| ✅ Persistence (CSV)                                                                         |
+|   • saveInventory() writes CSV with header `Product Name,Quantity,Price`.                    |
+|   • Current code writes to the provided absolute path when configured; defaults to cwd.      |
+|   • (🟡) Suggest: parameterize save path and add load-on-start to restore state.             |
++----------------------------------------------------------------------------------------------+
+| ✅ KISS                                                                                      |
+|   • Straightforward menu-driven flow; no unnecessary abstraction — appropriate for CLI.      |
++----------------------------------------------------------------------------------------------+
+| ✅ DRY (mostly)                                                                               |
+|   • Core behaviors are centralized in methods (add/update/search/delete/save).                |
+|   • (🟡) Some parsing and validation repeat; extract helpers (parseIntPrompt, parseFloat).    |
++----------------------------------------------------------------------------------------------+
+| ⚠️ SRP (Single Responsibility Principle)                                                      |
+|   • Method-level SRP: each method handles a single action (good).                             |
+|   • Class-level SRP: violated — the single class contains UI, state, and persistence.         |
+|   • Fix: Introduce `Product` (model), `InventoryManager` (service), `CsvPersistence` (DAO)    |
++----------------------------------------------------------------------------------------------+
+| ⚠️ Encapsulation                                                                              |
+|   • Current storage is public static lists in one class — not encapsulated.                   |
+|   • Fix: make lists private inside `InventoryManager` and expose controlled methods.          |
++----------------------------------------------------------------------------------------------+
+| ✅ Validation (improved suggestions)                                                          |
+|   • Lookups use equalsIgnoreCase — good UX.                                                   |
+|   • Current numeric parsing uses Integer.parseInt / Float.parseFloat without robust           |
+|     error handling — add try/catch and re-prompt.                                             |
+|   • Validate non-empty names and non-negative quantity/price.                                 |
++----------------------------------------------------------------------------------------------+
+| ✅ Procedural Script (Present)                                                                |
+|   • main() drives the menu loop — intended for CLI tools.                                     |
+|   • (🟡) Command pattern is optional for scriptable batch operations.                         |
++----------------------------------------------------------------------------------------------+
+| 🟡 Suggested Patterns & Refactors                                                             |
+|   • Product (Model) — immutable-ish value object or simple POJO with getters/setters.         |
+|   • InventoryManager (Service) — private internal collection + methods: add/update/delete     |
+|   • CsvPersistence (DAO) — responsible for load/save CSV; testable separately.                |
+|   • Factory: ProductFactory.create(name, qty, price) for centralized validation.              |
+|   • Strategy: different persistence targets (CSV, JSON, DB) selectable at runtime.            |
++----------------------------------------------------------------------------------------------+
+| ✅ Testability & Maintainability                                                            |
+|   • Parsing and business logic are in small methods — easy to unit-test after refactor.     |
++----------------------------------------------------------------------------------------------+
+| Quick mapping — Feature → Method (verified)                                                 |
+|  • Add Product         -> addProduct()                                                      |
+|  • View Inventory      -> viewInventory()                                                   |
+|  • Update Stock        -> updateProduct()                                                   |
+|  • Delete Product      -> deleteProduct()                                                   |
+|  • Search Product      -> searchProduct()                                                   |
+|  • Save & Exit (CSV)   -> saveInventory()          (writes inventory.csv)                   |
+|  • Menu Routing        -> main() + if/else                                                  |
++----------------------------------------------------------------------------------------------+
+| Short pragmatic, prioritized roadmap (do these in order)                                    |
+| 1) Create `Product` class to eliminate parallel arrays and prevent index-sync bugs.         |
+| 2) Implement `InventoryManager` (private List<Product>) with public methods used by main(). |
+| 3) Add `CsvPersistence` with load(path) and save(path); call load() at startup.             |
+| 4) Add parsing helpers: getInt(String prompt), getFloat(String prompt) that re-prompt.      |
+| 5) Add unit tests for InventoryManager methods (add, update, delete, search, save).         |
+
+
+
+|                                FLOWCHART — Inventory Runtime                                 |
+| Start                                                                                        |
+|   |                                                                                          |
+|   v                                                                                          |
+| Show Menu -> Prompt "1..6"                                                                   |
+|   |                                                                                          |
+|   v                                                                                          |
+| Read choice                                                                                  |
+|   |                                                                                          |
+|  (1) Add Product                                                                             |
+|      - Prompt: name, qty, price                                                              |
+|      - Validate inputs (not empty, numeric, non-negative)                                    |
+|      - Find index = findIndexByName(name)                                                    |
+|          -> if index >= 0:                                                                   |
+|                - productQuantities[index] += qty                                             |
+|                - optionally update price                                                     |
+|                - print "Product 'name' updated successfully!"                                |
+|          -> else:                                                                            |
+|                - append name, qty, price                                                     |
+|                - print "Product 'name' added successfully!"                                  |
+|      -> Back to Menu                                                                         |
+|  (2) View Inventory                                                                          |
+|      - if empty: print "Inventory is empty."                                                 |
+|      - else: print table rows Name | Qty | Price                                             |
+|      -> Back to Menu                                                                         |
+|  (3) Update Stock                                                                            |
+|      - Prompt name -> idx = findIndexByName(name)                                            |
+|          -> if idx >= 0: prompt newQty; set productQuantities[idx] = newQty; print msg       |
+|          -> else: "Product not found!"                                                       |
+|      -> Back to Menu                                                                         |
+|  (4) Delete Product                                                                          |
+|      - Prompt name -> idx = findIndexByName(name)                                            |
+|          -> if idx >= 0: remove product at idx from list(s); print deletion message          |
+|          -> else: "Product not found!"                                                       |
+|      -> Back to Menu                                                                         |
+|  (5) Search Product                                                                          |
+|      - Prompt name -> idx = findIndexByName(name)                                            |
+|          -> if idx >= 0: display qty & price                                                 |
+|          -> else: "Product not found!"                                                       |
+|      -> Back to Menu                                                                         |
+|  (6) Save & Exit                                                                             |
+|      - Call saveInventory(path) -> write CSV with header and rows                            |
+|      - Print "Inventory saved to <path>"                                                     |
+|      - Exit program                                                                          |
+|                                                                                              |
+| End                                                                                          |
+
+
+Sequence for "Add Product" (detailed linear steps):
+main -> read user input (name, qty, price) -> validate inputs -> findIndexByName(name)
+     -> if found: update quantity (and maybe price) -> print update message
+     -> else: add new product to collection -> print success message -> return to main loop
