@@ -163,7 +163,6 @@ public class InventoryManagement {
         String filename = "inventory.csv";
         String fullPath = Paths.get(saveDir, filename).toString();
 
-        // ensure directory exists
         try {
             Files.createDirectories(Paths.get(saveDir));
         } catch (IOException e) {
